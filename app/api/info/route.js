@@ -1,28 +1,24 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { NextResponse } from 'next/server';
-import path from 'path';
 
 const execPromise = promisify(exec);
 
-// Use local yt-dlp binary
-const YTDLP_PATH = path.join(process.cwd(), 'yt-dlp');
-
 export async function POST(request) {
-  try {
-    const { url } = await request.json();
+    try {
+        const { url } = await request.json();
 
-    if (!url) {
-      return NextResponse.json(
-        { error: 'YouTube URL is required' },
-        { status: 400 }
-      );
-    }
+        if (!url) {
+            return NextResponse.json(
+                { error: 'YouTube URL is required' },
+                { status: 400 }
+            );
+        }
 
-    const { stdout } = await execPromise(
-      `${YTDLP_PATH} --dump-json "${url}"`
-    );
-    const info = JSON.parse(stdout);
+        const { stdout } = await execPromise(
+            `yt-dlp --dump-json "${url}"`
+        );
+        const info = JSON.parse(stdout);
 
         const qualityMap = new Map();
         for (const format of info.formats) {

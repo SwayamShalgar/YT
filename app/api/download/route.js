@@ -1,14 +1,11 @@
 import { spawn } from 'child_process';
 import { NextResponse } from 'next/server';
-import path from 'path';
-
-// Use local yt-dlp binary
-const YTDLP_PATH = path.join(process.cwd(), 'yt-dlp');
 
 export async function POST(request) {
   try {
     const { url, format_id } = await request.json();
 
+    // Validation
     if (!url || !format_id) {
       return NextResponse.json(
         { error: 'URL and format selection are required' },
@@ -16,7 +13,7 @@ export async function POST(request) {
       );
     }
 
-    const ytdlp = spawn(YTDLP_PATH, [
+    const ytdlp = spawn('yt-dlp', [
       '-f', format_id,
       '--no-warnings',
       '-o', '-',
