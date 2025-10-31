@@ -7,49 +7,37 @@ export default function DownloadForm() {
     const [qualityOptions, setQualityOptions] = useState([]);
     const [loading, setLoading] = useState(false);
     const [downloading, setDownloading] = useState(false);
-    const [downloadProgress, setDownloadProgress] = useState(0);
-    const [downloadedSize, setDownloadedSize] = useState(0);
-    const [totalSize, setTotalSize] = useState(0);
-    const [downloadSpeed, setDownloadSpeed] = useState(0);
-    const [remainingTime, setRemainingTime] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [expandedVideos, setExpandedVideos] = useState(false);
-    const [expandedAudio, setExpandedAudio] = useState(false);
 
-    const formatBytes = (bytes) => {
-        if (!bytes || bytes === 0) return 'Unknown';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    const detectPlatform = (inputUrl) => {
+        if (inputUrl.includes('youtube.com') || inputUrl.includes('youtu.be')) return 'youtube';
+        if (inputUrl.includes('instagram.com')) return 'instagram';
+        return null;
     };
 
-    const formatTime = (seconds) => {
-        if (!seconds || seconds === Infinity || isNaN(seconds)) return '...';
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = Math.floor(seconds % 60);
-        if (hours > 0) return `${hours}h ${minutes}m`;
-        if (minutes > 0) return `${minutes}m ${secs}s`;
-        return `${secs}s`;
+    const getPlatformName = (platform) => {
+        return platform === 'youtube' ? 'YouTube' : 'Instagram';
     };
 
-    const formatDuration = (seconds) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    const getPlatformIcon = (platform) => {
+        return platform === 'youtube' ? '🎥' : '📷';
     };
 
     const handleFetchInfo = async (e) => {
         e.preventDefault();
         setError('');
         setSuccess('');
+
+        const platform = detectPlatform(url);
+        if (!platform) {
+            setError('Please enter a YouTube or Instagram URL');
+            return;
+        }
+
         setLoading(true);
         setVideoInfo(null);
         setQualityOptions([]);
-        setExpandedVideos(false);
-        setExpandedAudio(false);
 
         try {
             const response = await fetch('/api/info', {
@@ -57,10 +45,12 @@ export default function DownloadForm() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url }),
             });
+
             if (!response.ok) {
                 const data = await response.json();
                 throw new Error(data.error || 'Failed to fetch');
             }
+
             const data = await response.json();
             setVideoInfo(data.videoDetails);
             setQualityOptions(data.qualityOptions || []);
@@ -71,20 +61,12 @@ export default function DownloadForm() {
         }
     };
 
-    const handleDirectDownload = async (format) => {
+    const handleDownload = async (format) => {
         setError('');
         setSuccess('');
         setDownloading(true);
-        setDownloadProgress(0);
-        setDownloadedSize(0);
-        setDownloadSpeed(0);
-        setRemainingTime('');
-        const estimatedSize = format.filesize || 0;
-        if (estimatedSize) setTotalSize(estimatedSize);
 
-        const startTime = Date.now();
-        let lastLoaded = 0;
-        let lastTime = startTime;
+        const platform = detectPlatform(url);
 
         try {
             const response = await fetch('/api/download', {
@@ -94,62 +76,20 @@ export default function DownloadForm() {
             });
 
             if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Download failed');
+                throw new Error('Download failed');
             }
 
-            const contentLength = response.headers.get('content-length');
-            const total = contentLength ? parseInt(contentLength, 10) : estimatedSize || 0;
-            if (total > 0) setTotalSize(total);
-
-            const reader = response.body.getReader();
-            const chunks = [];
-            let loaded = 0;
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                chunks.push(value);
-                loaded += value.length;
-                setDownloadedSize(loaded);
-
-                if (total > 0) {
-                    const progress = (loaded / total) * 100;
-                    setDownloadProgress(Math.min(Math.round(progress), 100));
-                }
-
-                const currentTime = Date.now();
-                const timeDiff = (currentTime - lastTime) / 1000;
-                if (timeDiff >= 0.5) {
-                    const loadedDiff = loaded - lastLoaded;
-                    const speed = loadedDiff / timeDiff;
-                    setDownloadSpeed(speed);
-                    if (total > 0 && speed > 0) {
-                        const remaining = (total - loaded) / speed;
-                        setRemainingTime(formatTime(remaining));
-                    }
-                    lastLoaded = loaded;
-                    lastTime = currentTime;
-                }
-            }
-
-            const blob = new Blob(chunks);
-            if (total === 0) setTotalSize(blob.size);
-
+            const blob = await response.blob();
             const downloadUrl = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = downloadUrl;
-            const contentDisposition = response.headers.get('Content-Disposition');
-            const filenameMatch = contentDisposition && contentDisposition.match(/filename="(.+)"/);
-            const filename = filenameMatch ? filenameMatch[1] : 'video.mp4';
-            a.download = filename;
+            a.download = `video_${format.quality}.${format.ext}`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(downloadUrl);
             document.body.removeChild(a);
 
             setSuccess('Downloaded! ✓');
-            setDownloadProgress(100);
         } catch (err) {
             setError(err.message);
         } finally {
@@ -157,260 +97,121 @@ export default function DownloadForm() {
         }
     };
 
-    // Separate formats: MP4 video only, and audio only
-    const mp4VideoFormats = qualityOptions.filter(
-        opt => !opt.audioOnly && opt.ext === 'mp4'
-    );
-    const audioFormats = qualityOptions.filter(opt => opt.audioOnly);
-
-    // Items to display (3 initially)
-    const visibleVideoFormats = expandedVideos ? mp4VideoFormats : mp4VideoFormats.slice(0, 3);
-    const visibleAudioFormats = expandedAudio ? audioFormats : audioFormats.slice(0, 3);
-
-    const renderFormatCard = (opt, color, isAudio = false) => (
-        <div
-            key={opt.format_id}
-            className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-white border-2 rounded-lg hover:shadow-md transition-all ${
-                isAudio ? 'border-green-200 hover:border-green-400' : 'border-red-200 hover:border-red-400'
-            }`}
-        >
-            <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="font-bold text-gray-800 text-sm sm:text-base">
-                        {opt.quality}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                        {opt.ext ? `.${opt.ext}` : ''}
-                    </span>
-                    {!isAudio && opt.filesize && (
-                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
-                            📹 Video only
-                        </span>
-                    )}
-                    {isAudio && (
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                            🎵 Audio only
-                        </span>
-                    )}
-                </div>
-                <span className="text-xs sm:text-sm text-gray-600">
-                    {opt.filesize ? formatBytes(opt.filesize) : isAudio ? 'Unknown size' : 'Video+Audio (Unknown size)'}
-                </span>
-            </div>
-            <button
-                type="button"
-                onClick={() => handleDirectDownload(opt)}
-                disabled={downloading}
-                className={`w-full sm:w-auto px-4 sm:px-6 py-2.5 text-white font-bold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 text-sm sm:text-base bg-gradient-to-r ${
-                    isAudio ? 'from-green-500 to-green-600' : 'from-red-500 to-red-600'
-                }`}
-            >
-                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Download
-            </button>
-        </div>
-    );
+    const platform = detectPlatform(url);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-4 px-3 sm:py-8 sm:px-4">
-            <div className="max-w-6xl mx-auto w-full">
-                {/* Header */}
-                <div className="text-center mb-6 sm:mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl mb-3 sm:mb-4 shadow-lg">
-                        <svg className="w-8 h-8 sm:w-12 sm:h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 py-8 px-4">
+            <div className="max-w-4xl mx-auto">
+                <div className="text-center mb-8">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl mb-4 shadow-lg">
+                        <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
                         </svg>
                     </div>
-                    <h1 className="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-2">
-                        YouTube Downloader
+                    <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-800 mb-2">
+                        All Video Downloader
                     </h1>
-                    <p className="text-xs sm:text-base text-gray-600">Download videos in any quality</p>
+                    <p className="text-gray-600">🎥 YouTube • 📷 Instagram</p>
                 </div>
 
-                {/* Main Card */}
-                <div className="bg-white rounded-2xl sm:rounded-3xl shadow-lg sm:shadow-2xl p-4 sm:p-8 border border-gray-100 w-full">
-                    {/* Input Form */}
+                <div className="bg-white rounded-lg shadow-lg p-8 border border-gray-100">
                     <form onSubmit={handleFetchInfo} className="mb-6">
-                        <div className="relative">
+                        <div className="flex gap-2">
                             <input
                                 type="text"
                                 value={url}
                                 onChange={(e) => setUrl(e.target.value)}
-                                placeholder="Paste YouTube URL..."
-                                className="w-full px-3 sm:px-6 py-3 sm:py-4 pr-24 sm:pr-32 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-200 focus:border-indigo-500 text-gray-700 text-sm sm:text-base transition-all"
+                                placeholder="Paste YouTube or Instagram URL..."
+                                className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-gray-700"
                                 required
                             />
                             <button
                                 type="submit"
-                                disabled={loading || !url}
-                                className="absolute right-1.5 sm:right-2 top-1.5 sm:top-2 px-4 sm:px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-xs sm:text-base"
+                                disabled={loading}
+                                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                             >
-                                {loading ? '...' : 'Fetch'}
+                                {loading ? 'Loading...' : 'Fetch'}
                             </button>
                         </div>
+                        {platform && (
+                            <p className="mt-2 text-sm text-green-600 font-medium">
+                                ✓ {getPlatformIcon(platform)} {getPlatformName(platform)} URL detected
+                            </p>
+                        )}
                     </form>
 
-                    {/* Video Info Section */}
                     {videoInfo && (
-                        <div className="space-y-4 sm:space-y-6 animate-fadeIn">
-                            {/* Video Card */}
-                            <div className="flex flex-col sm:flex-row gap-4 p-4 sm:p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl">
-                                <img
-                                    src={videoInfo.thumbnail}
-                                    alt={videoInfo.title}
-                                    className="w-full sm:w-40 h-40 sm:h-32 object-cover rounded-lg shadow-lg flex-shrink-0"
-                                />
+                        <div className="space-y-6 animate-fadeIn">
+                            <div className="flex gap-4 p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border border-gray-200">
+                                {videoInfo.thumbnail && (
+                                    <img
+                                        src={videoInfo.thumbnail}
+                                        alt={videoInfo.title}
+                                        className="w-40 h-32 object-cover rounded-lg shadow-md flex-shrink-0"
+                                    />
+                                )}
                                 <div className="flex-1 min-w-0">
-                                    <h2 className="text-lg sm:text-2xl font-bold text-gray-800 mb-2 line-clamp-2">
-                                        {videoInfo.title}
-                                    </h2>
-                                    <div className="space-y-1 text-xs sm:text-base text-gray-600">
-                                        <p className="flex items-center gap-2 truncate">
-                                            <span className="font-semibold">By:</span> {videoInfo.author}
-                                        </p>
-                                        <p className="flex items-center gap-2">
-                                            <span className="font-semibold">Duration:</span> {formatDuration(videoInfo.duration)}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* TWO COLUMN LAYOUT */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* VIDEO COLUMN - MP4 ONLY */}
-                                <div>
-                                    <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                        <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Video Formats (MP4)
-                                    </h3>
-                                    {mp4VideoFormats.length === 0 ? (
-                                        <div className="text-center py-8 text-gray-500 text-sm bg-gray-50 rounded-lg">
-                                            No MP4 video formats available
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className="space-y-2 sm:space-y-3">
-                                                {visibleVideoFormats.map((opt) => renderFormatCard(opt, 'red'))}
-                                            </div>
-
-                                            {/* Show More Button for Videos */}
-                                            {mp4VideoFormats.length > 3 && (
-                                                <button
-                                                    onClick={() => setExpandedVideos(!expandedVideos)}
-                                                    className="w-full mt-3 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
-                                                >
-                                                    {expandedVideos ? (
-                                                        <>
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                                                            </svg>
-                                                            Show Less
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                                                            </svg>
-                                                            Show More ({mp4VideoFormats.length - 3} more)
-                                                        </>
-                                                    )}
-                                                </button>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-
-                                {/* AUDIO COLUMN */}
-                                <div>
-                                    <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                        <svg className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                                        </svg>
-                                        Audio Formats
-                                    </h3>
-                                    {audioFormats.length === 0 ? (
-                                        <div className="text-center py-8 text-gray-500 text-sm bg-gray-50 rounded-lg">
-                                            No audio formats available
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className="space-y-2 sm:space-y-3">
-                                                {visibleAudioFormats.map((opt) => renderFormatCard(opt, 'green', true))}
-                                            </div>
-
-                                            {/* Show More Button for Audio */}
-                                            {audioFormats.length > 3 && (
-                                                <button
-                                                    onClick={() => setExpandedAudio(!expandedAudio)}
-                                                    className="w-full mt-3 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
-                                                >
-                                                    {expandedAudio ? (
-                                                        <>
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                                                            </svg>
-                                                            Show Less
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                                                            </svg>
-                                                            Show More ({audioFormats.length - 3} more)
-                                                        </>
-                                                    )}
-                                                </button>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Download Progress */}
-                            {downloading && (
-                                <div className="p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border-2 border-indigo-200 animate-fadeIn">
-                                    <div className="flex justify-between mb-2">
-                                        <span className="font-semibold text-gray-800 text-sm sm:text-base">Downloading...</span>
-                                        <span className="font-bold text-indigo-600 text-sm sm:text-base">
-                                            {totalSize > 0 ? `${downloadProgress}%` : 'Processing...'}
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-2xl">{getPlatformIcon(platform)}</span>
+                                        <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
+                                            {videoInfo.platform}
                                         </span>
                                     </div>
-                                    <div className="w-full bg-gray-200 rounded-full h-2.5 mb-3 overflow-hidden">
-                                        <div
-                                            className={`h-2.5 rounded-full transition-all duration-300 ${
-                                                totalSize > 0
-                                                    ? 'bg-gradient-to-r from-indigo-500 to-purple-600'
-                                                    : 'bg-gradient-to-r from-indigo-500 via-purple-600 to-indigo-500 animate-shimmer'
-                                            }`}
-                                            style={{ 
-                                                width: totalSize > 0 ? `${downloadProgress}%` : '100%'
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-2 text-xs sm:text-sm text-gray-600">
-                                        <span>{formatBytes(downloadedSize)}</span>
-                                        <span className="text-center">{formatBytes(downloadSpeed)}/s</span>
-                                        <span className="text-right">{remainingTime}</span>
-                                    </div>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-2 line-clamp-2">
+                                        {videoInfo.title}
+                                    </h2>
+                                    <p className="text-gray-600 mb-1">
+                                        <strong>By:</strong> {videoInfo.author}
+                                    </p>
+                                    {videoInfo.duration && (
+                                        <p className="text-gray-600">
+                                            <strong>Duration:</strong> {Math.floor(videoInfo.duration / 60)}:{String(videoInfo.duration % 60).padStart(2, '0')}
+                                        </p>
+                                    )}
                                 </div>
-                            )}
+                            </div>
 
-                            {/* Messages */}
-                            {error && (
-                                <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl text-red-700 text-sm sm:text-base animate-fadeIn">
-                                    ❌ {error}
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-800 mb-4">
+                                    Available Formats ({qualityOptions.length})
+                                </h3>
+                                <div className="space-y-2 max-h-96 overflow-y-auto">
+                                    {qualityOptions.map((opt) => (
+                                        <div
+                                            key={opt.format_id}
+                                            className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-blue-400 hover:shadow-md transition-all"
+                                        >
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-semibold text-gray-800 text-sm sm:text-base">
+                                                    {opt.label}
+                                                </div>
+                                                <div className="text-xs sm:text-sm text-gray-600 mt-1 flex items-center gap-3 flex-wrap">
+                                                    <span>📦 Size: <span className="font-bold text-blue-600">{opt.filesizeLabel || 'Calculating...'}</span></span>
+                                                    {opt.fps && <span>🎬 {opt.fps}fps</span>}
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => handleDownload(opt)}
+                                                disabled={downloading}
+                                                className="px-4 sm:px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none whitespace-nowrap ml-4 text-xs sm:text-base"
+                                            >
+                                                Download
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
-                            )}
-                            {success && (
-                                <div className="p-4 bg-green-50 border-2 border-green-200 rounded-xl text-green-700 text-sm sm:text-base animate-fadeIn flex items-center gap-2">
-                                    ✅ {success}
-                                </div>
-                            )}
+                            </div>
+                        </div>
+                    )}
+
+                    {error && (
+                        <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700 animate-fadeIn">
+                            ❌ {error}
+                        </div>
+                    )}
+                    {success && (
+                        <div className="p-4 bg-green-50 border-2 border-green-200 rounded-lg text-green-700 animate-fadeIn">
+                            ✅ {success}
                         </div>
                     )}
                 </div>
@@ -423,14 +224,6 @@ export default function DownloadForm() {
                 }
                 .animate-fadeIn {
                     animation: fadeIn 0.5s ease-out;
-                }
-                
-                @keyframes shimmer {
-                    0%, 100% { opacity: 0.6; }
-                    50% { opacity: 1; }
-                }
-                .animate-shimmer {
-                    animation: shimmer 2s infinite;
                 }
             `}</style>
         </div>
