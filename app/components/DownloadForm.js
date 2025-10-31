@@ -253,7 +253,7 @@ export default function DownloadForm() {
                                                             </span>
                                                         </div>
                                                         <span className="text-xs sm:text-sm text-gray-600">
-                                                            {opt.filesize ? formatBytes(opt.filesize) : 'Size unknown'}
+                                                            {opt.filesize ? formatBytes(opt.filesize) : 'Audio+Video (Unknown size)'}
                                                         </span>
                                                     </div>
                                                     <button
@@ -301,11 +301,11 @@ export default function DownloadForm() {
                                                                 {opt.ext ? `.${opt.ext}` : ''}
                                                             </span>
                                                             <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                                                                🎵 Audio
+                                                                🎵 Audio only
                                                             </span>
                                                         </div>
                                                         <span className="text-xs sm:text-sm text-gray-600">
-                                                            {opt.filesize ? formatBytes(opt.filesize) : 'Size unknown'}
+                                                            {opt.filesize ? formatBytes(opt.filesize) : 'Unknown size'}
                                                         </span>
                                                     </div>
                                                     <button
