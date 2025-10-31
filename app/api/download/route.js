@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 function detectPlatform(url) {
     if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
     if (url.includes('instagram.com')) return 'instagram';
+    if (url.includes('pinterest.com')) return 'pinterest';
     return null;
 }
 
@@ -22,12 +23,12 @@ export async function POST(request) {
 
         if (!platform) {
             return NextResponse.json(
-                { error: 'YouTube or Instagram URL required' },
+                { error: 'YouTube, Instagram, or Pinterest URL required' },
                 { status: 400 }
             );
         }
 
-        // Use yt-dlp directly (works for both YouTube and Instagram)
+        // Use yt-dlp directly - works for YouTube, Instagram, and Pinterest
         const ytdlp = spawn('yt-dlp', [
             '-f', format_id,
             '--no-warnings',
