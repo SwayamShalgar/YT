@@ -14,6 +14,8 @@ export default function DownloadForm() {
     const [remainingTime, setRemainingTime] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [expandedVideos, setExpandedVideos] = useState(false);
+    const [expandedAudio, setExpandedAudio] = useState(false);
 
     const formatBytes = (bytes) => {
         if (!bytes || bytes === 0) return 'Unknown';
@@ -46,6 +48,8 @@ export default function DownloadForm() {
         setLoading(true);
         setVideoInfo(null);
         setQualityOptions([]);
+        setExpandedVideos(false);
+        setExpandedAudio(false);
 
         try {
             const response = await fetch('/api/info', {
@@ -159,6 +163,56 @@ export default function DownloadForm() {
     );
     const audioFormats = qualityOptions.filter(opt => opt.audioOnly);
 
+    // Items to display (3 initially)
+    const visibleVideoFormats = expandedVideos ? mp4VideoFormats : mp4VideoFormats.slice(0, 3);
+    const visibleAudioFormats = expandedAudio ? audioFormats : audioFormats.slice(0, 3);
+
+    const renderFormatCard = (opt, color, isAudio = false) => (
+        <div
+            key={opt.format_id}
+            className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-white border-2 rounded-lg hover:shadow-md transition-all ${
+                isAudio ? 'border-green-200 hover:border-green-400' : 'border-red-200 hover:border-red-400'
+            }`}
+        >
+            <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="font-bold text-gray-800 text-sm sm:text-base">
+                        {opt.quality}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                        {opt.ext ? `.${opt.ext}` : ''}
+                    </span>
+                    {!isAudio && opt.filesize && (
+                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                            📹 Video only
+                        </span>
+                    )}
+                    {isAudio && (
+                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                            🎵 Audio only
+                        </span>
+                    )}
+                </div>
+                <span className="text-xs sm:text-sm text-gray-600">
+                    {opt.filesize ? formatBytes(opt.filesize) : isAudio ? 'Unknown size' : 'Video+Audio (Unknown size)'}
+                </span>
+            </div>
+            <button
+                type="button"
+                onClick={() => handleDirectDownload(opt)}
+                disabled={downloading}
+                className={`w-full sm:w-auto px-4 sm:px-6 py-2.5 text-white font-bold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 text-sm sm:text-base bg-gradient-to-r ${
+                    isAudio ? 'from-green-500 to-green-600' : 'from-red-500 to-red-600'
+                }`}
+            >
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download
+            </button>
+        </div>
+    );
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-4 px-3 sm:py-8 sm:px-4">
             <div className="max-w-6xl mx-auto w-full">
@@ -239,45 +293,35 @@ export default function DownloadForm() {
                                             No MP4 video formats available
                                         </div>
                                     ) : (
-                                        <div className="space-y-2 sm:space-y-3">
-                                            {mp4VideoFormats.map((opt) => (
-                                                <div
-                                                    key={opt.format_id}
-                                                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-white border-2 border-red-200 rounded-lg hover:border-red-400 hover:shadow-md transition-all"
+                                        <>
+                                            <div className="space-y-2 sm:space-y-3">
+                                                {visibleVideoFormats.map((opt) => renderFormatCard(opt, 'red'))}
+                                            </div>
+
+                                            {/* Show More Button for Videos */}
+                                            {mp4VideoFormats.length > 3 && (
+                                                <button
+                                                    onClick={() => setExpandedVideos(!expandedVideos)}
+                                                    className="w-full mt-3 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
                                                 >
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                                                            <span className="font-bold text-gray-800 text-sm sm:text-base">
-                                                                {opt.quality}
-                                                            </span>
-                                                            <span className="text-xs text-gray-500">
-                                                                {opt.ext ? `.${opt.ext}` : ''}
-                                                            </span>
-                                                            {/* Show "Video only" badge ONLY if filesize is known */}
-                                                            {opt.filesize && (
-                                                                <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
-                                                                    📹 Video only
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <span className="text-xs sm:text-sm text-gray-600">
-                                                            {opt.filesize ? formatBytes(opt.filesize) : 'Video+Audio (Unknown size)'}
-                                                        </span>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDirectDownload(opt)}
-                                                        disabled={downloading}
-                                                        className="w-full sm:w-auto px-4 sm:px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 text-sm sm:text-base"
-                                                    >
-                                                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                        </svg>
-                                                        Download
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
+                                                    {expandedVideos ? (
+                                                        <>
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                                            </svg>
+                                                            Show Less
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                                                            </svg>
+                                                            Show More ({mp4VideoFormats.length - 3} more)
+                                                        </>
+                                                    )}
+                                                </button>
+                                            )}
+                                        </>
                                     )}
                                 </div>
 
@@ -294,42 +338,35 @@ export default function DownloadForm() {
                                             No audio formats available
                                         </div>
                                     ) : (
-                                        <div className="space-y-2 sm:space-y-3">
-                                            {audioFormats.map((opt) => (
-                                                <div
-                                                    key={opt.format_id}
-                                                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-white border-2 border-green-200 rounded-lg hover:border-green-400 hover:shadow-md transition-all"
+                                        <>
+                                            <div className="space-y-2 sm:space-y-3">
+                                                {visibleAudioFormats.map((opt) => renderFormatCard(opt, 'green', true))}
+                                            </div>
+
+                                            {/* Show More Button for Audio */}
+                                            {audioFormats.length > 3 && (
+                                                <button
+                                                    onClick={() => setExpandedAudio(!expandedAudio)}
+                                                    className="w-full mt-3 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
                                                 >
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                                                            <span className="font-bold text-gray-800 text-sm sm:text-base">
-                                                                {opt.quality}
-                                                            </span>
-                                                            <span className="text-xs text-gray-500">
-                                                                {opt.ext ? `.${opt.ext}` : ''}
-                                                            </span>
-                                                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                                                                🎵 Audio only
-                                                            </span>
-                                                        </div>
-                                                        <span className="text-xs sm:text-sm text-gray-600">
-                                                            {opt.filesize ? formatBytes(opt.filesize) : 'Unknown size'}
-                                                        </span>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDirectDownload(opt)}
-                                                        disabled={downloading}
-                                                        className="w-full sm:w-auto px-4 sm:px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 text-sm sm:text-base"
-                                                    >
-                                                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                        </svg>
-                                                        Download
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
+                                                    {expandedAudio ? (
+                                                        <>
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                                            </svg>
+                                                            Show Less
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                                                            </svg>
+                                                            Show More ({audioFormats.length - 3} more)
+                                                        </>
+                                                    )}
+                                                </button>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             </div>
