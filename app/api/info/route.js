@@ -10,7 +10,6 @@ function detectPlatform(url) {
     return null;
 }
 
-// Format bytes to readable format
 function formatBytes(bytes) {
     if (!bytes || bytes === 0) return null;
     const k = 1024;
@@ -39,28 +38,43 @@ export async function POST(request) {
             );
         }
 
-        // Get info from yt-dlp
+        // Get info from yt-dlp with better format extraction
         const { stdout } = await execPromise(
-            `yt-dlp --dump-json "${url}"`
+            `yt-dlp --dump-json "${url}" 2>/dev/null`
         );
 
         const info = JSON.parse(stdout);
         const qualityMap = new Map();
 
-        // Process all available formats
-        for (const format of info.formats) {
+        // Filter formats by video quality
+        for (const format of info.formats || []) {
             if (!format.format_id) continue;
-            if (format.ext === 'mhtml' || format.ext === '3gp') continue;
-
-            // Calculate filesize
-            let filesize = format.filesize || format.filesize_approx;
             
-            // If no filesize, try to estimate from bitrate
-            if (!filesize && format.tbr && format.duration) {
-                filesize = Math.round((format.tbr * 1024 * format.duration) / 8);
+            // Skip mhtml and 3gp formats
+            if (format.ext === 'mhtml' || format.ext === '3gp') continue;
+            
+            // Get actual filesize from yt-dlp data
+            let filesize = null;
+            
+            if (format.filesize) {
+                filesize = format.filesize;
+            } else if (format.filesize_approx) {
+                filesize = format.filesize_approx;
+            } else if (format.tbr && info.duration) {
+                // Fallback: estimate from bitrate
+                filesize = Math.round((format.tbr * 1000 * info.duration) / 8);
+            } else if (format.vbr && format.abr && info.duration) {
+                // Video + audio bitrate
+                filesize = Math.round(((format.vbr + format.abr) * 1000 * info.duration) / 8);
+            } else if (format.vbr && info.duration && format.vcodec !== 'none') {
+                // Video only bitrate
+                filesize = Math.round((format.vbr * 1000 * info.duration) / 8);
+            } else if (format.abr && info.duration && format.acodec !== 'none' && format.vcodec === 'none') {
+                // Audio only bitrate
+                filesize = Math.round((format.abr * 1000 * info.duration) / 8);
             }
 
-            // Get quality label
+            // Build quality label
             let quality =
                 format.qualityLabel ||
                 (format.height ? `${format.height}p` : '') ||
@@ -69,15 +83,16 @@ export async function POST(request) {
 
             let label = quality;
             if (format.vcodec !== 'none' && format.acodec !== 'none') label += ' (Video+Audio)';
-            if (format.vcodec !== 'none' && format.acodec === 'none') label += ' (Video Only)';
-            if (format.vcodec === 'none' && format.acodec !== 'none') label += ' (Audio Only)';
+            else if (format.vcodec !== 'none' && format.acodec === 'none') label += ' (Video Only)';
+            else if (format.vcodec === 'none' && format.acodec !== 'none') label += ' (Audio Only)';
+            
             if (format.ext) label += ` .${format.ext}`;
 
             const videoOnly = format.vcodec !== 'none' && format.acodec === 'none';
             const audioOnly = format.vcodec === 'none' && format.acodec !== 'none';
-
-            // Get estimated filesize with label
-            const filesizeLabel = filesize ? formatBytes(filesize) : 'Calculating...';
+            
+            // Format filesize for display
+            const filesizeLabel = filesize ? formatBytes(filesize) : 'Unknown';
 
             if (!qualityMap.has(format.format_id)) {
                 qualityMap.set(format.format_id, {
@@ -89,15 +104,13 @@ export async function POST(request) {
                     filesizeLabel: filesizeLabel,
                     videoOnly,
                     audioOnly,
-                    fps: format.fps || null,
-                    bitrate: format.tbr || null,
                 });
             }
         }
 
         let qualityOptions = Array.from(qualityMap.values());
 
-        // Sort by priority: best+audio first, then by height
+        // Sort: best+audio first, then by height
         qualityOptions.sort((a, b) => {
             const priorityA = (!a.videoOnly && !a.audioOnly) ? 0 : (a.videoOnly ? 1 : 2);
             const priorityB = (!b.videoOnly && !b.audioOnly) ? 0 : (b.videoOnly ? 1 : 2);
@@ -110,21 +123,32 @@ export async function POST(request) {
             return heightB - heightA;
         });
 
+        // Remove duplicates - keep best quality versions only
+        const filteredOptions = [];
+        const heightsSeen = new Set();
+        
+        for (const opt of qualityOptions) {
+            const height = parseInt(opt.quality) || 0;
+            if (!heightsSeen.has(height)) {
+                filteredOptions.push(opt);
+                heightsSeen.add(height);
+            }
+        }
+
         return NextResponse.json({
             videoDetails: {
-                title: info.title,
-                thumbnail: info.thumbnail,
-                duration: info.duration,
+                title: info.title || 'Unknown Title',
+                thumbnail: info.thumbnail || '',
+                duration: info.duration || 0,
                 author: info.uploader || info.channel || 'Unknown',
-                viewCount: info.view_count,
-                platform: platform === 'youtube' ? 'YouTube' : 'Instagram',
+                viewCount: info.view_count || 0,
             },
-            qualityOptions,
+            qualityOptions: filteredOptions,
         });
     } catch (error) {
         console.error('Error fetching info:', error);
         return NextResponse.json(
-            { error: 'Failed to fetch information', details: error.message },
+            { error: 'Failed to fetch video info', details: error.message },
             { status: 500 }
         );
     }
