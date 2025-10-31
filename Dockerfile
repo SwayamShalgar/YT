@@ -1,36 +1,23 @@
-FROM node:20
+FROM node:18-alpine
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    python3-full \
-    python3-pip \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+# Install yt-dlp dependencies
+RUN apk add --no-cache python3 py3-pip ffmpeg && \
+    pip3 install yt-dlp
 
-# Install yt-dlp
-RUN pip3 install --break-system-packages --no-cache-dir yt-dlp && \
-    yt-dlp --version
-
-# Verify Node.js version
-RUN node --version && npm --version
-
-# Set working directory
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
 # Install Node dependencies
-RUN npm install
+RUN npm ci --only=production
 
-# Copy all files
+# Copy project
 COPY . .
 
-# Build Next.js app
+# Build Next.js
 RUN npm run build
 
-# Expose port
 EXPOSE 3000
 
-# Start the app
 CMD ["npm", "start"]

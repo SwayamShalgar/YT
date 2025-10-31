@@ -41,10 +41,37 @@ export default function DownloadForm() {
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
+    const isValidUrl = (inputUrl) => {
+        const validPlatforms = [
+            'youtube.com',
+            'youtu.be',
+            'instagram.com',
+            'tiktok.com',
+            'facebook.com',
+            'pinterest.com'
+        ];
+        return validPlatforms.some(platform => inputUrl.includes(platform));
+    };
+
+    const getPlatformIcon = (inputUrl) => {
+        if (inputUrl.includes('youtube.com') || inputUrl.includes('youtu.be')) return '🎥';
+        if (inputUrl.includes('instagram.com')) return '📷';
+        if (inputUrl.includes('tiktok.com')) return '🎵';
+        if (inputUrl.includes('facebook.com')) return 'f';
+        if (inputUrl.includes('pinterest.com')) return '📌';
+        return '▶️';
+    };
+
     const handleFetchInfo = async (e) => {
         e.preventDefault();
         setError('');
         setSuccess('');
+
+        if (!isValidUrl(url)) {
+            setError('Please enter a valid YouTube, Instagram, TikTok, Facebook or Pinterest URL');
+            return;
+        }
+
         setLoading(true);
         setVideoInfo(null);
         setQualityOptions([]);
@@ -157,17 +184,15 @@ export default function DownloadForm() {
         }
     };
 
-    // Separate formats: MP4 video only, and audio only
     const mp4VideoFormats = qualityOptions.filter(
         opt => !opt.audioOnly && opt.ext === 'mp4'
     );
     const audioFormats = qualityOptions.filter(opt => opt.audioOnly);
 
-    // Items to display (3 initially)
     const visibleVideoFormats = expandedVideos ? mp4VideoFormats : mp4VideoFormats.slice(0, 3);
     const visibleAudioFormats = expandedAudio ? audioFormats : audioFormats.slice(0, 3);
 
-    const renderFormatCard = (opt, color, isAudio = false) => (
+    const renderFormatCard = (opt, isAudio = false) => (
         <div
             key={opt.format_id}
             className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-white border-2 rounded-lg hover:shadow-md transition-all ${
@@ -216,7 +241,6 @@ export default function DownloadForm() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-4 px-3 sm:py-8 sm:px-4">
             <div className="max-w-6xl mx-auto w-full">
-                {/* Header */}
                 <div className="text-center mb-6 sm:mb-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl mb-3 sm:mb-4 shadow-lg">
                         <svg className="w-8 h-8 sm:w-12 sm:h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -224,21 +248,19 @@ export default function DownloadForm() {
                         </svg>
                     </div>
                     <h1 className="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-2">
-                        YouTube Downloader
+                        All Video Downloader
                     </h1>
-                    <p className="text-xs sm:text-base text-gray-600">Download videos in any quality</p>
+                    <p className="text-xs sm:text-base text-gray-600">🎥 YouTube • 📷 Instagram • 🎵 TikTok • f Facebook • 📌 Pinterest</p>
                 </div>
 
-                {/* Main Card */}
                 <div className="bg-white rounded-2xl sm:rounded-3xl shadow-lg sm:shadow-2xl p-4 sm:p-8 border border-gray-100 w-full">
-                    {/* Input Form */}
                     <form onSubmit={handleFetchInfo} className="mb-6">
                         <div className="relative">
                             <input
                                 type="text"
                                 value={url}
                                 onChange={(e) => setUrl(e.target.value)}
-                                placeholder="Paste YouTube URL..."
+                                placeholder="Paste YouTube, Instagram, TikTok, Facebook or Pinterest URL..."
                                 className="w-full px-3 sm:px-6 py-3 sm:py-4 pr-24 sm:pr-32 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-200 focus:border-indigo-500 text-gray-700 text-sm sm:text-base transition-all"
                                 required
                             />
@@ -252,10 +274,8 @@ export default function DownloadForm() {
                         </div>
                     </form>
 
-                    {/* Video Info Section */}
                     {videoInfo && (
                         <div className="space-y-4 sm:space-y-6 animate-fadeIn">
-                            {/* Video Card */}
                             <div className="flex flex-col sm:flex-row gap-4 p-4 sm:p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl">
                                 <img
                                     src={videoInfo.thumbnail}
@@ -263,6 +283,12 @@ export default function DownloadForm() {
                                     className="w-full sm:w-40 h-40 sm:h-32 object-cover rounded-lg shadow-lg flex-shrink-0"
                                 />
                                 <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-2xl">{getPlatformIcon(url)}</span>
+                                        <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-semibold">
+                                            {videoInfo.platform}
+                                        </span>
+                                    </div>
                                     <h2 className="text-lg sm:text-2xl font-bold text-gray-800 mb-2 line-clamp-2">
                                         {videoInfo.title}
                                     </h2>
@@ -270,16 +296,16 @@ export default function DownloadForm() {
                                         <p className="flex items-center gap-2 truncate">
                                             <span className="font-semibold">By:</span> {videoInfo.author}
                                         </p>
-                                        <p className="flex items-center gap-2">
-                                            <span className="font-semibold">Duration:</span> {formatDuration(videoInfo.duration)}
-                                        </p>
+                                        {videoInfo.duration > 0 && (
+                                            <p className="flex items-center gap-2">
+                                                <span className="font-semibold">Duration:</span> {formatDuration(videoInfo.duration)}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* TWO COLUMN LAYOUT */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* VIDEO COLUMN - MP4 ONLY */}
                                 <div>
                                     <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
                                         <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -295,10 +321,9 @@ export default function DownloadForm() {
                                     ) : (
                                         <>
                                             <div className="space-y-2 sm:space-y-3">
-                                                {visibleVideoFormats.map((opt) => renderFormatCard(opt, 'red'))}
+                                                {visibleVideoFormats.map((opt) => renderFormatCard(opt))}
                                             </div>
 
-                                            {/* Show More Button for Videos */}
                                             {mp4VideoFormats.length > 3 && (
                                                 <button
                                                     onClick={() => setExpandedVideos(!expandedVideos)}
@@ -325,7 +350,6 @@ export default function DownloadForm() {
                                     )}
                                 </div>
 
-                                {/* AUDIO COLUMN */}
                                 <div>
                                     <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
                                         <svg className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -340,10 +364,9 @@ export default function DownloadForm() {
                                     ) : (
                                         <>
                                             <div className="space-y-2 sm:space-y-3">
-                                                {visibleAudioFormats.map((opt) => renderFormatCard(opt, 'green', true))}
+                                                {visibleAudioFormats.map((opt) => renderFormatCard(opt, true))}
                                             </div>
 
-                                            {/* Show More Button for Audio */}
                                             {audioFormats.length > 3 && (
                                                 <button
                                                     onClick={() => setExpandedAudio(!expandedAudio)}
@@ -371,7 +394,6 @@ export default function DownloadForm() {
                                 </div>
                             </div>
 
-                            {/* Download Progress */}
                             {downloading && (
                                 <div className="p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border-2 border-indigo-200 animate-fadeIn">
                                     <div className="flex justify-between mb-2">
@@ -400,7 +422,6 @@ export default function DownloadForm() {
                                 </div>
                             )}
 
-                            {/* Messages */}
                             {error && (
                                 <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl text-red-700 text-sm sm:text-base animate-fadeIn">
                                     ❌ {error}

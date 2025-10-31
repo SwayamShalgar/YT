@@ -1,14 +1,23 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'YouTube Video Downloader',
-  description: 'Download YouTube videos in any quality',
+  title: 'All Video Downloader - YouTube, Instagram, TikTok',
+  description: 'Download videos from YouTube, Instagram, TikTok, Facebook, Pinterest in 1080p quality',
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <head>
+        {/* PropellerAds - Optional */}
+        <script
+          async
+          src="//cdn.propellerads.com/YOUR_ZONE_ID.js"
+        ></script>
+      </head>
+      <body>
+        {children}
+      </body>
     </html>
   );
 }
