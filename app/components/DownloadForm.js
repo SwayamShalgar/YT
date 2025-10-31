@@ -153,9 +153,13 @@ export default function DownloadForm() {
         }
     };
 
+    // Separate video and audio formats
+    const videoFormats = qualityOptions.filter(opt => !opt.audioOnly);
+    const audioFormats = qualityOptions.filter(opt => opt.audioOnly);
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-4 px-3 sm:py-8 sm:px-4">
-            <div className="max-w-2xl mx-auto w-full">
+            <div className="max-w-6xl mx-auto w-full">
                 {/* Header */}
                 <div className="text-center mb-6 sm:mb-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl mb-3 sm:mb-4 shadow-lg">
@@ -213,70 +217,113 @@ export default function DownloadForm() {
                                         <p className="flex items-center gap-2">
                                             <span className="font-semibold">Duration:</span> {formatDuration(videoInfo.duration)}
                                         </p>
-                                        <p className="flex items-center gap-2">
-                                            <span className="font-semibold">Views:</span> {parseInt(videoInfo.viewCount).toLocaleString()}
-                                        </p>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Formats Section */}
-                            <div>
-                                <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                                    </svg>
-                                    Formats
-                                </h3>
-                                {qualityOptions.length === 0 ? (
-                                    <div className="text-center py-6 text-gray-500 text-sm">
-                                        No formats available
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2 sm:space-y-3">
-                                        {qualityOptions.map((opt) => (
-                                            <div
-                                                key={opt.format_id}
-                                                className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-white border-2 border-gray-200 rounded-lg hover:border-indigo-300 hover:shadow-md transition-all"
-                                            >
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                                                        <span className="font-bold text-gray-800 text-sm sm:text-base">
-                                                            {opt.quality}
-                                                        </span>
-                                                        <span className="text-xs text-gray-500">
-                                                            {opt.ext ? `.${opt.ext}` : ''}
-                                                        </span>
-                                                        {opt.videoOnly && (
-                                                            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
-                                                                Video
-                                                            </span>
-                                                        )}
-                                                        {opt.audioOnly && (
-                                                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                                                                Audio
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <span className="text-xs sm:text-sm text-gray-600">
-                                                        {opt.filesize ? formatBytes(opt.filesize) : 'Size unknown'}
-                                                    </span>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDirectDownload(opt)}
-                                                    disabled={downloading}
-                                                    className="w-full sm:w-auto px-4 sm:px-6 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 text-sm sm:text-base"
+                            {/* TWO COLUMN LAYOUT */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* VIDEO COLUMN */}
+                                <div>
+                                    <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                        <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Video Formats
+                                    </h3>
+                                    {videoFormats.length === 0 ? (
+                                        <div className="text-center py-8 text-gray-500 text-sm bg-gray-50 rounded-lg">
+                                            No video formats available
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2 sm:space-y-3">
+                                            {videoFormats.map((opt) => (
+                                                <div
+                                                    key={opt.format_id}
+                                                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-white border-2 border-red-200 rounded-lg hover:border-red-400 hover:shadow-md transition-all"
                                                 >
-                                                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                    </svg>
-                                                    Download
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                            <span className="font-bold text-gray-800 text-sm sm:text-base">
+                                                                {opt.quality}
+                                                            </span>
+                                                            <span className="text-xs text-gray-500">
+                                                                {opt.ext ? `.${opt.ext}` : ''}
+                                                            </span>
+                                                        </div>
+                                                        <span className="text-xs sm:text-sm text-gray-600">
+                                                            {opt.filesize ? formatBytes(opt.filesize) : 'Size unknown'}
+                                                        </span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDirectDownload(opt)}
+                                                        disabled={downloading}
+                                                        className="w-full sm:w-auto px-4 sm:px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 text-sm sm:text-base"
+                                                    >
+                                                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                        </svg>
+                                                        Download
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* AUDIO COLUMN */}
+                                <div>
+                                    <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                        <svg className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                                        </svg>
+                                        Audio Formats
+                                    </h3>
+                                    {audioFormats.length === 0 ? (
+                                        <div className="text-center py-8 text-gray-500 text-sm bg-gray-50 rounded-lg">
+                                            No audio formats available
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2 sm:space-y-3">
+                                            {audioFormats.map((opt) => (
+                                                <div
+                                                    key={opt.format_id}
+                                                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-white border-2 border-green-200 rounded-lg hover:border-green-400 hover:shadow-md transition-all"
+                                                >
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                            <span className="font-bold text-gray-800 text-sm sm:text-base">
+                                                                {opt.quality}
+                                                            </span>
+                                                            <span className="text-xs text-gray-500">
+                                                                {opt.ext ? `.${opt.ext}` : ''}
+                                                            </span>
+                                                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                                                                🎵 Audio
+                                                            </span>
+                                                        </div>
+                                                        <span className="text-xs sm:text-sm text-gray-600">
+                                                            {opt.filesize ? formatBytes(opt.filesize) : 'Size unknown'}
+                                                        </span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDirectDownload(opt)}
+                                                        disabled={downloading}
+                                                        className="w-full sm:w-auto px-4 sm:px-6 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 text-sm sm:text-base"
+                                                    >
+                                                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                        </svg>
+                                                        Download
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Download Progress */}
