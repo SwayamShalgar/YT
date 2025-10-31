@@ -153,8 +153,10 @@ export default function DownloadForm() {
         }
     };
 
-    // Separate video and audio formats
-    const videoFormats = qualityOptions.filter(opt => !opt.audioOnly);
+    // Separate formats: MP4 video only, and audio only
+    const mp4VideoFormats = qualityOptions.filter(
+        opt => !opt.audioOnly && opt.ext === 'mp4'
+    );
     const audioFormats = qualityOptions.filter(opt => opt.audioOnly);
 
     return (
@@ -223,22 +225,22 @@ export default function DownloadForm() {
 
                             {/* TWO COLUMN LAYOUT */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* VIDEO COLUMN */}
+                                {/* VIDEO COLUMN - MP4 ONLY */}
                                 <div>
                                     <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
                                         <svg className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
-                                        Video Formats
+                                        Video Formats (MP4)
                                     </h3>
-                                    {videoFormats.length === 0 ? (
+                                    {mp4VideoFormats.length === 0 ? (
                                         <div className="text-center py-8 text-gray-500 text-sm bg-gray-50 rounded-lg">
-                                            No video formats available
+                                            No MP4 video formats available
                                         </div>
                                     ) : (
                                         <div className="space-y-2 sm:space-y-3">
-                                            {videoFormats.map((opt) => (
+                                            {mp4VideoFormats.map((opt) => (
                                                 <div
                                                     key={opt.format_id}
                                                     className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-white border-2 border-red-200 rounded-lg hover:border-red-400 hover:shadow-md transition-all"
@@ -251,9 +253,12 @@ export default function DownloadForm() {
                                                             <span className="text-xs text-gray-500">
                                                                 {opt.ext ? `.${opt.ext}` : ''}
                                                             </span>
+                                                            <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                                                                📹 Video only
+                                                            </span>
                                                         </div>
                                                         <span className="text-xs sm:text-sm text-gray-600">
-                                                            {opt.filesize ? formatBytes(opt.filesize) : 'Audio+Video (Unknown size)'}
+                                                            {opt.filesize ? formatBytes(opt.filesize) : 'Video+Audio (Unknown size)'}
                                                         </span>
                                                     </div>
                                                     <button
@@ -375,3 +380,4 @@ export default function DownloadForm() {
         </div>
     );
 }
+*
