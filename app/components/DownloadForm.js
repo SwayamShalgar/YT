@@ -376,12 +376,20 @@ export default function DownloadForm() {
                                 <div className="p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border-2 border-indigo-200 animate-fadeIn">
                                     <div className="flex justify-between mb-2">
                                         <span className="font-semibold text-gray-800 text-sm sm:text-base">Downloading...</span>
-                                        <span className="font-bold text-indigo-600 text-sm sm:text-base">{downloadProgress}%</span>
+                                        <span className="font-bold text-indigo-600 text-sm sm:text-base">
+                                            {totalSize > 0 ? `${downloadProgress}%` : 'Processing...'}
+                                        </span>
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-2.5 mb-3 overflow-hidden">
                                         <div
-                                            className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2.5 rounded-full transition-all duration-300"
-                                            style={{ width: `${downloadProgress}%` }}
+                                            className={`h-2.5 rounded-full transition-all duration-300 ${
+                                                totalSize > 0
+                                                    ? 'bg-gradient-to-r from-indigo-500 to-purple-600'
+                                                    : 'bg-gradient-to-r from-indigo-500 via-purple-600 to-indigo-500 animate-shimmer'
+                                            }`}
+                                            style={{ 
+                                                width: totalSize > 0 ? `${downloadProgress}%` : '100%'
+                                            }}
                                         />
                                     </div>
                                     <div className="grid grid-cols-3 gap-2 text-xs sm:text-sm text-gray-600">
@@ -415,6 +423,14 @@ export default function DownloadForm() {
                 }
                 .animate-fadeIn {
                     animation: fadeIn 0.5s ease-out;
+                }
+                
+                @keyframes shimmer {
+                    0%, 100% { opacity: 0.6; }
+                    50% { opacity: 1; }
+                }
+                .animate-shimmer {
+                    animation: shimmer 2s infinite;
                 }
             `}</style>
         </div>
