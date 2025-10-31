@@ -7,6 +7,7 @@ const execPromise = promisify(exec);
 function detectPlatform(url) {
     if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
     if (url.includes('instagram.com')) return 'instagram';
+    if (url.includes('pinterest.com')) return 'pinterest';
     return null;
 }
 
@@ -33,7 +34,7 @@ export async function POST(request) {
 
         if (!platform) {
             return NextResponse.json(
-                { error: 'YouTube or Instagram URL required' },
+                { error: 'YouTube, Instagram, or Pinterest URL required' },
                 { status: 400 }
             );
         }
