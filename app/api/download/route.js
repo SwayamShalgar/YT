@@ -1,6 +1,12 @@
 import { spawn } from 'child_process';
 import { NextResponse } from 'next/server';
 
+function detectPlatform(url) {
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
+    if (url.includes('instagram.com')) return 'instagram';
+    return null;
+}
+
 export async function POST(request) {
     try {
         const { url, format_id } = await request.json();
@@ -12,7 +18,16 @@ export async function POST(request) {
             );
         }
 
-        // Use yt-dlp directly
+        const platform = detectPlatform(url);
+
+        if (!platform) {
+            return NextResponse.json(
+                { error: 'YouTube or Instagram URL required' },
+                { status: 400 }
+            );
+        }
+
+        // Use yt-dlp directly (works for both YouTube and Instagram)
         const ytdlp = spawn('yt-dlp', [
             '-f', format_id,
             '--no-warnings',
@@ -23,8 +38,7 @@ export async function POST(request) {
         const isAudio = format_id.includes('audio') || format_id.includes('Audio');
         const ext = isAudio ? "mp3" : "mp4";
         const contentType = isAudio ? "audio/mpeg" : "video/mp4";
-
-        const filename = `video_${format_id}.${ext}`;
+        const filename = `video_${Date.now()}.${ext}`;
 
         let closed = false;
 
@@ -39,15 +53,18 @@ export async function POST(request) {
                         }
                     }
                 });
+
                 ytdlp.stdout.on('end', () => {
                     if (!closed) {
                         closed = true;
                         controller.close();
                     }
                 });
+
                 ytdlp.stderr.on('data', data => {
                     console.error('yt-dlp stderr:', data.toString());
                 });
+
                 ytdlp.on('error', error => {
                     console.error('yt-dlp error:', error);
                     if (!closed) {
@@ -55,6 +72,7 @@ export async function POST(request) {
                         controller.error(error);
                     }
                 });
+
                 ytdlp.on('close', () => {
                     if (!closed) {
                         closed = true;
@@ -74,9 +92,8 @@ export async function POST(request) {
                 'Content-Disposition': `attachment; filename="${filename}"`,
                 'Content-Type': contentType,
                 'Transfer-Encoding': 'chunked',
-            }
+            },
         });
-
     } catch (error) {
         console.error('Download error:', error);
         return NextResponse.json(
