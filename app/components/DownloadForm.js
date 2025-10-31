@@ -15,16 +15,14 @@ export default function DownloadForm() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    // Helper function for formatting size in bytes
     const formatBytes = (bytes) => {
-        if (!bytes || bytes === 0) return 'Audio+video (unknown size)';
+        if (!bytes || bytes === 0) return 'Audio+Video (Unknown Size)';
         const k = 1024;
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
     };
 
-    // Helper function for formatting remaining time
     const formatTime = (seconds) => {
         if (!seconds || seconds === Infinity || isNaN(seconds)) return 'Calculating...';
         const hours = Math.floor(seconds / 3600);
@@ -35,14 +33,12 @@ export default function DownloadForm() {
         return `${secs}s`;
     };
 
-    // Helper for formatting video duration
     const formatDuration = (seconds) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Fetch video info and quality options
     const handleFetchInfo = async (e) => {
         e.preventDefault();
         setError('');
@@ -71,7 +67,6 @@ export default function DownloadForm() {
         }
     };
 
-    // Download function for a specific format
     const handleDirectDownload = async (format) => {
         setError('');
         setSuccess('');
@@ -167,152 +162,194 @@ export default function DownloadForm() {
     };
 
     return (
-        <div className="min-h-screen bg-linear-to-tr from-blue-100 via-purple-100 to-pink-100 py-16 px-4">
-            <div className="max-w-2xl mx-auto">
-                <div className="backdrop-blur-lg bg-white/80 border border-blue-200 rounded-3xl shadow-2xl p-10">
-                    <h1 className="text-5xl font-extrabold text-center mb-4 text-black tracking-tight drop-shadow">
-                        YouTube Video Downloader
+        <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4">
+            <div className="max-w-4xl mx-auto">
+                {/* Header */}
+                <div className="text-center mb-8">
+                    <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl mb-4 shadow-lg">
+                        <svg className="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                    </div>
+                    <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-2">
+                        YouTube Downloader
                     </h1>
-                    <form onSubmit={handleFetchInfo} className="mb-6 space-y-4">
-                        <div>
-                            <label htmlFor="url" className="block text-base font-bold text-black mb-2">
-                                YouTube Video URL
-                            </label>
+                    <p className="text-gray-600 text-lg">Download videos in any quality, quickly and easily</p>
+                </div>
+
+                {/* Main Card */}
+                <div className="bg-white rounded-3xl shadow-2xl p-8 border border-gray-100">
+                    <form onSubmit={handleFetchInfo} className="mb-6">
+                        <div className="relative">
                             <input
                                 type="text"
-                                id="url"
                                 value={url}
                                 onChange={(e) => setUrl(e.target.value)}
-                                placeholder="https://www.youtube.com/watch?v=..."
-                                className="w-full px-4 py-3 border border-blue-400 rounded-lg focus:ring-2 focus:ring-blue-400 font-mono text-black bg-white/90 shadow-inner"
+                                placeholder="Paste YouTube URL here..."
+                                className="w-full px-6 py-4 pr-32 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-200 focus:border-indigo-500 text-gray-700 text-lg transition-all"
                                 required
                             />
+                            <button
+                                type="submit"
+                                disabled={loading || !url}
+                                className="absolute right-2 top-2 px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                            >
+                                {loading ? (
+                                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                    </svg>
+                                ) : 'Fetch'}
+                            </button>
                         </div>
-                        <button
-                            type="submit"
-                            disabled={loading || !url}
-                            className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-6 rounded-lg disabled:bg-gray-400"
-                        >
-                            {loading ? "Fetching Video Info..." : "Get Video Info"}
-                        </button>
                     </form>
 
+                    {/* Video Info */}
                     {videoInfo && (
-                        <>
-                            <div className="border border-purple-200 bg-purple-50/60 mt-6 rounded-2xl px-7 pt-6 pb-8 shadow-md">
-                                <div className="flex flex-col md:flex-row gap-5 items-start w-full max-w-full">
-                                    {/* ...Video details unchanged... */}
+                        <div className="space-y-6 animate-fadeIn">
+                            {/* Video Preview */}
+                            <div className="flex gap-6 p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl">
+                                <img
+                                    src={videoInfo.thumbnail}
+                                    alt={videoInfo.title}
+                                    className="w-48 h-36 object-cover rounded-xl shadow-lg"
+                                />
+                                <div className="flex-1">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-3 line-clamp-2">
+                                        {videoInfo.title}
+                                    </h2>
+                                    <div className="space-y-1 text-gray-600">
+                                        <p className="flex items-center gap-2">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            </svg>
+                                            {videoInfo.author}
+                                        </p>
+                                        <p className="flex items-center gap-2">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            {formatDuration(videoInfo.duration)}
+                                        </p>
+                                        <p className="flex items-center gap-2">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                            {parseInt(videoInfo.viewCount).toLocaleString()} views
+                                        </p>
+                                    </div>
                                 </div>
+                            </div>
 
-                                <div className="mt-7">
-                                    <label className="block text-sm font-bold text-black mb-3">
-                                        Available Qualities / Formats
-                                    </label>
-                                    {qualityOptions.length === 0 ? (
-                                        <div className="text-gray-500 text-sm font-medium p-2">
-                                            No qualities found for this video.
-                                        </div>
-                                    ) : (
-                                        <div className="grid gap-3">
-                                            {qualityOptions.map((opt) => (
-                                                <div key={opt.format_id} className="flex flex-row justify-between items-center ...">
-                                                    <div className="flex flex-col">
-                                                        <span className="font-bold text-black text-lg">
-                                                            {/* Show quality (+ extension), always */}
+                            {/* Quality Options */}
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                    <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                                    </svg>
+                                    Available Formats
+                                </h3>
+                                {qualityOptions.length === 0 ? (
+                                    <div className="text-center py-8 text-gray-500">
+                                        No qualities found for this video.
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-3">
+                                        {qualityOptions.map((opt) => (
+                                            <div
+                                                key={opt.format_id}
+                                                className="flex items-center justify-between p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-indigo-300 hover:shadow-md transition-all"
+                                            >
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="text-lg font-bold text-gray-800">
                                                             {opt.quality}
-                                                            {opt.ext ? ` .${opt.ext}` : ''}
                                                         </span>
-                                                        <span className="text-xs text-gray-900">
-                                                            {/* Optionally show descriptor: Video Only, Audio Only, Video+Audio */}
-                                                            {opt.label && !opt.label.startsWith(opt.quality) && opt.label}
-                                                        </span>
-                                                        <span className="text-sm text-black">
-                                                            {opt.filesize ? formatBytes(opt.filesize) : 'Audio+video (unknown size)'}
+                                                        <span className="text-sm text-gray-500">
+                                                            {opt.ext ? `.${opt.ext}` : ''}
                                                         </span>
                                                         {opt.videoOnly && (
-                                                            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 mt-1 rounded font-medium w-max">
+                                                            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
                                                                 Video Only
                                                             </span>
                                                         )}
                                                         {opt.audioOnly && (
-                                                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 mt-1 rounded font-medium w-max">
+                                                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
                                                                 Audio Only
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDirectDownload(opt)}
-                                                        className="px-4 py-2 rounded bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-800 text-white font-bold text-base shadow disabled:bg-gray-400"
-                                                        disabled={downloading}
-                                                    >
-                                                        Download
-                                                    </button>
+                                                    <span className="text-sm text-gray-600">
+                                                        {opt.filesize ? formatBytes(opt.filesize) : 'Audio+Video (Unknown Size)'}
+                                                    </span>
                                                 </div>
-                                            ))}
-
-                                        </div>
-                                    )}
-                                </div>
-
-                                {downloading && (
-                                    <div className="mt-6 bg-white border border-blue-100/60 p-4 rounded-lg shadow-sm backdrop-blur-md">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="text-base font-semibold text-black">
-                                                Downloading... {downloadProgress > 0 ? `${downloadProgress}%` : ''}
-                                            </span>
-                                            <span className="text-base">
-                                                {formatBytes(downloadedSize)}
-                                                {totalSize > 0 ? ` / ${formatBytes(totalSize)}` : ''}
-                                            </span>
-                                        </div>
-                                        <div className="w-full bg-blue-200 rounded-full h-5 overflow-hidden mb-3 shadow-inner">
-                                            {totalSize > 0 ? (
-                                                <div
-                                                    className="bg-linear-to-r from-blue-600 via-purple-600 to-pink-600 h-5 rounded-full transition-all duration-300 flex items-center justify-center text-xs text-white font-bold"
-                                                    style={{ width: `${downloadProgress}%` }}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDirectDownload(opt)}
+                                                    disabled={downloading}
+                                                    className="px-6 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center gap-2"
                                                 >
-                                                    {downloadProgress > 5 && `${downloadProgress}%`}
-                                                </div>
-                                            ) : (
-                                                <div className="bg-linear-to-r from-blue-500 to-green-500 h-5 rounded-full animate-pulse w-full flex items-center justify-center text-xs text-white font-bold">
-                                                    Downloading...
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="flex flex-wrap gap-10 text-base font-medium mt-1">
-                                            <span className="flex gap-2 items-center text-black">
-                                                <svg className="w-4 h-4 text-blue-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                                </svg>
-                                                Speed: {formatBytes(downloadSpeed)}/s
-                                            </span>
-                                            <span className="flex gap-2 items-center text-black">
-                                                <svg className="w-4 h-4 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                                Time left: {remainingTime || 'Calculating...'}
-                                            </span>
-                                        </div>
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                    </svg>
+                                                    Download
+                                                </button>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
-
-                                {success && (
-                                    <div className="mt-4 px-4 py-3 rounded-lg bg-green-100 text-green-700 font-semibold shadow">
-                                        {success}
-                                    </div>
-                                )}
-                                {error && (
-                                    <div className="mt-4 px-4 py-3 rounded-lg bg-red-100 text-red-700 font-semibold shadow">
-                                        {error}
-                                    </div>
-                                )}
-
                             </div>
-                        </>
+
+                            {/* Progress */}
+                            {downloading && (
+                                <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border-2 border-indigo-200 animate-fadeIn">
+                                    <div className="flex justify-between mb-3">
+                                        <span className="font-semibold text-gray-800">Downloading...</span>
+                                        <span className="font-bold text-indigo-600">{downloadProgress}%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-3 mb-4 overflow-hidden">
+                                        <div
+                                            className="bg-gradient-to-r from-indigo-500 to-purple-600 h-3 rounded-full transition-all duration-300"
+                                            style={{ width: `${downloadProgress}%` }}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between text-sm text-gray-600">
+                                        <span>{formatBytes(downloadedSize)} / {formatBytes(totalSize)}</span>
+                                        <span>{formatBytes(downloadSpeed)}/s</span>
+                                        <span>{remainingTime}</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Messages */}
+                            {error && (
+                                <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl text-red-700 animate-fadeIn">
+                                    <strong>Error:</strong> {error}
+                                </div>
+                            )}
+                            {success && (
+                                <div className="p-4 bg-green-50 border-2 border-green-200 rounded-xl text-green-700 animate-fadeIn flex items-center gap-2">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    {success}
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
             </div>
+
+            <style jsx>{`
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fadeIn {
+                    animation: fadeIn 0.5s ease-out;
+                }
+            `}</style>
         </div>
     );
 }

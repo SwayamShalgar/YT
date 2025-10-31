@@ -1,8 +1,12 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { NextResponse } from 'next/server';
+import path from 'path';
 
 const execPromise = promisify(exec);
+
+// Use local yt-dlp binary
+const YTDLP_PATH = path.join(process.cwd(), 'yt-dlp');
 
 export async function POST(request) {
     try {
@@ -15,15 +19,20 @@ export async function POST(request) {
             );
         }
 
+        // Use local yt-dlp binary
         const { stdout } = await execPromise(
-            `yt-dlp --dump-json "${url}"`
+            `${YTDLP_PATH} --dump-json "${url}"`
         );
         const info = JSON.parse(stdout);
 
         const qualityMap = new Map();
+
         for (const format of info.formats) {
             if (!format.format_id) continue;
-            // Prefer qualityLabel, then resolution, then 'Audio Only'
+
+            // Skip unwanted formats
+            if (format.ext === 'mhtml' || format.ext === '3gp') continue;
+
             let quality =
                 format.qualityLabel ||
                 (format.height ? `${format.height}p` : '') ||
@@ -37,6 +46,8 @@ export async function POST(request) {
             if (format.ext) label += ` .${format.ext}`;
 
             const size = format.filesize || format.filesize_approx || null;
+            const videoOnly = format.vcodec !== 'none' && format.acodec === 'none';
+            const audioOnly = format.vcodec === 'none' && format.acodec !== 'none';
 
             if (!qualityMap.has(format.format_id)) {
                 qualityMap.set(format.format_id, {
@@ -45,14 +56,26 @@ export async function POST(request) {
                     quality,
                     ext: format.ext,
                     filesize: size,
-                    videoOnly: format.vcodec !== 'none' && format.acodec === 'none',
-                    audioOnly: format.vcodec === 'none' && format.acodec !== 'none',
+                    videoOnly,
+                    audioOnly,
                 });
             }
         }
 
+        let qualityOptions = Array.from(qualityMap.values());
 
-        const qualityOptions = Array.from(qualityMap.values());
+        qualityOptions.sort((a, b) => {
+            const priorityA = (!a.videoOnly && !a.audioOnly) ? 0 : (a.videoOnly ? 1 : 2);
+            const priorityB = (!b.videoOnly && !b.audioOnly) ? 0 : (b.videoOnly ? 1 : 2);
+            
+            if (priorityA !== priorityB) {
+                return priorityA - priorityB;
+            }
+
+            const heightA = parseInt(a.quality) || 0;
+            const heightB = parseInt(b.quality) || 0;
+            return heightB - heightA;
+        });
 
         return NextResponse.json({
             videoDetails: {
@@ -65,6 +88,7 @@ export async function POST(request) {
             qualityOptions,
         });
     } catch (error) {
+        console.error('Error fetching video info:', error);
         return NextResponse.json(
             { error: 'Failed to fetch video information', details: error.message },
             { status: 500 }
