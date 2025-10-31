@@ -253,9 +253,12 @@ export default function DownloadForm() {
                                                             <span className="text-xs text-gray-500">
                                                                 {opt.ext ? `.${opt.ext}` : ''}
                                                             </span>
-                                                            <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
-                                                                📹 Video only
-                                                            </span>
+                                                            {/* Show "Video only" badge ONLY if filesize is known */}
+                                                            {opt.filesize && (
+                                                                <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                                                                    📹 Video only
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         <span className="text-xs sm:text-sm text-gray-600">
                                                             {opt.filesize ? formatBytes(opt.filesize) : 'Video+Audio (Unknown size)'}
