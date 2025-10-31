@@ -1,18 +1,18 @@
-FROM node:18
+FROM node:20
 
-# Install system dependencies first
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     python3-full \
     python3-pip \
-    python3-venv \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Install yt-dlp with --break-system-packages flag
-RUN pip3 install --break-system-packages --no-cache-dir yt-dlp
+# Install yt-dlp
+RUN pip3 install --break-system-packages --no-cache-dir yt-dlp && \
+    yt-dlp --version
 
-# Verify yt-dlp is installed
-RUN yt-dlp --version
+# Verify Node.js version
+RUN node --version && npm --version
 
 # Set working directory
 WORKDIR /app
