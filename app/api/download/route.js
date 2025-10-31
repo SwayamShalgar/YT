@@ -1,9 +1,5 @@
 import { spawn } from 'child_process';
 import { NextResponse } from 'next/server';
-import path from 'path';
-
-// Use local yt-dlp binary
-const YTDLP_PATH = path.join(process.cwd(), 'yt-dlp');
 
 export async function POST(request) {
     try {
@@ -16,14 +12,15 @@ export async function POST(request) {
             );
         }
 
-        const ytdlp = spawn(YTDLP_PATH, [
+        // Use yt-dlp directly
+        const ytdlp = spawn('yt-dlp', [
             '-f', format_id,
             '--no-warnings',
             '-o', '-',
             url,
         ]);
 
-        const isAudio = format_id === "Audio Only (MP3)";
+        const isAudio = format_id.includes('audio') || format_id.includes('Audio');
         const ext = isAudio ? "mp3" : "mp4";
         const contentType = isAudio ? "audio/mpeg" : "video/mp4";
 

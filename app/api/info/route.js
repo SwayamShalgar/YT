@@ -1,12 +1,8 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { NextResponse } from 'next/server';
-import path from 'path';
 
 const execPromise = promisify(exec);
-
-// Use local yt-dlp binary
-const YTDLP_PATH = path.join(process.cwd(), 'yt-dlp');
 
 export async function POST(request) {
     try {
@@ -19,9 +15,9 @@ export async function POST(request) {
             );
         }
 
-        // Use local yt-dlp binary
+        // Use yt-dlp directly (installed via nixpacks)
         const { stdout } = await execPromise(
-            `${YTDLP_PATH} --dump-json "${url}"`
+            `yt-dlp --dump-json "${url}"`
         );
         const info = JSON.parse(stdout);
 
@@ -29,8 +25,6 @@ export async function POST(request) {
 
         for (const format of info.formats) {
             if (!format.format_id) continue;
-
-            // Skip unwanted formats
             if (format.ext === 'mhtml' || format.ext === '3gp') continue;
 
             let quality =
