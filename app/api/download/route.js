@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 function detectPlatform(url) {
     if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
     if (url.includes('instagram.com')) return 'instagram';
+    if (url.includes('pinterest.com')) return 'pinterest';
     return null;
 }
 
@@ -22,15 +23,16 @@ export async function POST(request) {
 
         if (!platform) {
             return NextResponse.json(
-                { error: 'YouTube or Instagram URL required' },
+                { error: 'YouTube, Instagram, or Pinterest URL required' },
                 { status: 400 }
             );
         }
 
-        // Use yt-dlp directly (works for both YouTube and Instagram)
+        // Use yt-dlp
         const ytdlp = spawn('yt-dlp', [
             '-f', format_id,
             '--no-warnings',
+            '--no-playlist',
             '-o', '-',
             url,
         ]);
@@ -38,15 +40,20 @@ export async function POST(request) {
         const isAudio = format_id.includes('audio') || format_id.includes('Audio');
         const ext = isAudio ? "mp3" : "mp4";
         const contentType = isAudio ? "audio/mpeg" : "video/mp4";
-        const filename = `video_${Date.now()}.${ext}`;
+        
+        // Generate filename
+        const timestamp = Date.now();
+        const filename = `video_${timestamp}.${ext}`;
 
         let closed = false;
+        const chunks = [];
 
         const stream = new ReadableStream({
             start(controller) {
                 ytdlp.stdout.on('data', chunk => {
                     if (!closed) {
                         try {
+                            chunks.push(chunk);
                             controller.enqueue(chunk);
                         } catch {
                             closed = true;
@@ -73,10 +80,14 @@ export async function POST(request) {
                     }
                 });
 
-                ytdlp.on('close', () => {
+                ytdlp.on('close', (code) => {
                     if (!closed) {
                         closed = true;
-                        controller.close();
+                        if (code === 0) {
+                            controller.close();
+                        } else {
+                            controller.error(new Error(`Download failed with code ${code}`));
+                        }
                     }
                 });
             },
@@ -87,16 +98,20 @@ export async function POST(request) {
         });
 
         return new Response(stream, {
-    status: 200,
-    headers: {
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Type': contentType,
-        'Transfer-Encoding': 'chunked',
-        'Cache-Control': 'no-cache',  // ADD THIS
-        'X-Content-Type-Options': 'nosniff',  // ADD THIS
-    },
-});
-
+            status: 200,
+            headers: {
+                // MOBILE-FRIENDLY HEADERS
+                'Content-Type': contentType,
+                'Content-Disposition': `attachment; filename="${filename}"`,
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+                'X-Content-Type-Options': 'nosniff',
+                // Mobile Safari fix
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Expose-Headers': 'Content-Disposition',
+            },
+        });
     } catch (error) {
         console.error('Download error:', error);
         return NextResponse.json(
