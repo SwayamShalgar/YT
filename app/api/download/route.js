@@ -87,13 +87,16 @@ export async function POST(request) {
         });
 
         return new Response(stream, {
-            status: 200,
-            headers: {
-                'Content-Disposition': `attachment; filename="${filename}"`,
-                'Content-Type': contentType,
-                'Transfer-Encoding': 'chunked',
-            },
-        });
+    status: 200,
+    headers: {
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Type': contentType,
+        'Transfer-Encoding': 'chunked',
+        'Cache-Control': 'no-cache',  // ADD THIS
+        'X-Content-Type-Options': 'nosniff',  // ADD THIS
+    },
+});
+
     } catch (error) {
         console.error('Download error:', error);
         return NextResponse.json(

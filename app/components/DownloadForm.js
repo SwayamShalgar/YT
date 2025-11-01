@@ -72,90 +72,116 @@ export default function DownloadForm() {
     };
 
     const handleDirectDownload = async (format) => {
-        setError('');
-        setSuccess('');
-        setDownloading(true);
-        setDownloadProgress(0);
-        setDownloadedSize(0);
-        setDownloadSpeed(0);
-        setRemainingTime('');
-        const estimatedSize = format.filesize || 0;
-        if (estimatedSize) setTotalSize(estimatedSize);
+    setError('');
+    setSuccess('');
+    setDownloading(true);
+    setDownloadProgress(0);
+    setDownloadedSize(0);
+    setDownloadSpeed(0);
+    setRemainingTime('');
+    
+    const estimatedSize = format.filesize || 0;
+    if (estimatedSize) setTotalSize(estimatedSize);
 
-        const startTime = Date.now();
-        let lastLoaded = 0;
-        let lastTime = startTime;
+    const startTime = Date.now();
+    let lastLoaded = 0;
+    let lastTime = startTime;
 
-        try {
-            const response = await fetch('/api/download', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, format_id: format.format_id }),
-            });
+    try {
+        const response = await fetch('/api/download', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, format_id: format.format_id }),
+        });
 
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Download failed');
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Download failed');
+        }
+
+        const contentLength = response.headers.get('content-length');
+        const total = contentLength ? parseInt(contentLength, 10) : estimatedSize || 0;
+        if (total > 0) setTotalSize(total);
+
+        const reader = response.body.getReader();
+        const chunks = [];
+        let loaded = 0;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            chunks.push(value);
+            loaded += value.length;
+            setDownloadedSize(loaded);
+
+            if (total > 0) {
+                const progress = (loaded / total) * 100;
+                setDownloadProgress(Math.min(Math.round(progress), 100));
             }
 
-            const contentLength = response.headers.get('content-length');
-            const total = contentLength ? parseInt(contentLength, 10) : estimatedSize || 0;
-            if (total > 0) setTotalSize(total);
-
-            const reader = response.body.getReader();
-            const chunks = [];
-            let loaded = 0;
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                chunks.push(value);
-                loaded += value.length;
-                setDownloadedSize(loaded);
-
-                if (total > 0) {
-                    const progress = (loaded / total) * 100;
-                    setDownloadProgress(Math.min(Math.round(progress), 100));
+            const currentTime = Date.now();
+            const timeDiff = (currentTime - lastTime) / 1000;
+            if (timeDiff >= 0.5) {
+                const loadedDiff = loaded - lastLoaded;
+                const speed = loadedDiff / timeDiff;
+                setDownloadSpeed(speed);
+                if (total > 0 && speed > 0) {
+                    const remaining = (total - loaded) / speed;
+                    setRemainingTime(formatTime(remaining));
                 }
-
-                const currentTime = Date.now();
-                const timeDiff = (currentTime - lastTime) / 1000;
-                if (timeDiff >= 0.5) {
-                    const loadedDiff = loaded - lastLoaded;
-                    const speed = loadedDiff / timeDiff;
-                    setDownloadSpeed(speed);
-                    if (total > 0 && speed > 0) {
-                        const remaining = (total - loaded) / speed;
-                        setRemainingTime(formatTime(remaining));
-                    }
-                    lastLoaded = loaded;
-                    lastTime = currentTime;
-                }
+                lastLoaded = loaded;
+                lastTime = currentTime;
             }
+        }
 
-            const blob = new Blob(chunks);
-            if (total === 0) setTotalSize(blob.size);
+        // Create blob from chunks
+        const blob = new Blob(chunks, { type: format.audioOnly ? 'audio/mpeg' : 'video/mp4' });
+        if (total === 0) setTotalSize(blob.size);
 
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = downloadUrl;
-            const contentDisposition = response.headers.get('Content-Disposition');
-            const filenameMatch = contentDisposition && contentDisposition.match(/filename="(.+)"/);
-            const filename = filenameMatch ? filenameMatch[1] : 'video.mp4';
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
+        // Generate proper filename
+        const sanitizeTitle = (title) => {
+            return title
+                .replace(/[^\w\s-]/g, '') // Remove special chars
+                .replace(/\s+/g, '_')     // Replace spaces with underscore
+                .substring(0, 50);        // Limit length
+        };
+
+        const videoTitle = videoInfo?.title ? sanitizeTitle(videoInfo.title) : 'video';
+        const timestamp = new Date().getTime();
+        const extension = format.audioOnly ? 'mp3' : 'mp4';
+        const filename = `${videoTitle}_${format.quality}_${timestamp}.${extension}`;
+
+        // Create download link and trigger download
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = downloadUrl;
+        a.download = filename;
+        
+        // Important: Add to DOM before clicking
+        document.body.appendChild(a);
+        
+        // Trigger download
+        a.click();
+        
+        // Cleanup after a short delay
+        setTimeout(() => {
             window.URL.revokeObjectURL(downloadUrl);
             document.body.removeChild(a);
+        }, 100);
 
-            setSuccess('Downloaded! ✓');
-            setDownloadProgress(100);
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setDownloading(false);
-        }
-    };
+        setSuccess('Downloaded successfully! Check your Downloads folder ✓');
+        setDownloadProgress(100);
+        
+    } catch (err) {
+        console.error('Download error:', err);
+        setError(err.message || 'Download failed. Please try again.');
+    } finally {
+        setDownloading(false);
+    }
+};
+
 
     // Separate formats: MP4 video only, and audio only
     const mp4VideoFormats = qualityOptions.filter(
@@ -180,8 +206,8 @@ export default function DownloadForm() {
                 <div className="flex flex-wrap items-center gap-2 mb-2">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold text-white ${
                         isAudio 
-                            ? 'bg-gradient-to-r from-emerald-500 to-green-600' 
-                            : 'bg-gradient-to-r from-red-500 to-rose-600'
+                            ? 'bg-linear-to-r from-emerald-500 to-green-600' 
+                            : 'bg-linear-to-r from-red-500 to-rose-600'
                     }`}>
                         {opt.quality}
                     </span>
@@ -210,8 +236,8 @@ export default function DownloadForm() {
                 disabled={downloading}
                 className={`w-full sm:w-auto px-6 sm:px-8 py-3 text-white font-bold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm sm:text-base transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-2xl ${
                     isAudio 
-                        ? 'bg-gradient-to-r from-emerald-500 via-green-500 to-teal-600 hover:from-emerald-600 hover:via-green-600 hover:to-teal-700' 
-                        : 'bg-gradient-to-r from-red-500 via-rose-500 to-pink-600 hover:from-red-600 hover:via-rose-600 hover:to-pink-700'
+                        ? 'bg-linear-to-r from-emerald-500 via-green-500 to-teal-600 hover:from-emerald-600 hover:via-green-600 hover:to-teal-700' 
+                        : 'bg-linear-to-r from-red-500 via-rose-500 to-pink-600 hover:from-red-600 hover:via-rose-600 hover:to-pink-700'
                 }`}
             >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -223,7 +249,7 @@ export default function DownloadForm() {
     );
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-900 to-slate-950 py-4 px-3 sm:py-8 sm:px-4 relative overflow-hidden">
+        <div className="min-h-screen bg-linear-to-br from-slate-950 via-purple-900 to-slate-950 py-4 px-3 sm:py-8 sm:px-4 relative overflow-hidden">
             {/* Animated Background */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
@@ -234,13 +260,13 @@ export default function DownloadForm() {
             <div className="max-w-6xl mx-auto w-full relative z-10">
                 {/* Header */}
                 <div className="text-center mb-8 sm:mb-12">
-                    <div className="inline-flex items-center justify-center w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-red-500 via-pink-500 to-purple-600 rounded-3xl mb-4 sm:mb-6 shadow-2xl transform hover:scale-110 transition-transform duration-300 relative">
-                        <div className="absolute inset-0 bg-gradient-to-br from-red-500 via-pink-500 to-purple-600 rounded-3xl blur-lg opacity-50"></div>
+                    <div className="inline-flex items-center justify-center w-20 h-20 sm:w-24 sm:h-24 bg-linear-to-br from-red-500 via-pink-500 to-purple-600 rounded-3xl mb-4 sm:mb-6 shadow-2xl transform hover:scale-110 transition-transform duration-300 relative">
+                        <div className="absolute inset-0 bg-linear-to-br from-red-500 via-pink-500 to-purple-600 rounded-3xl blur-lg opacity-50"></div>
                         <svg className="w-10 h-10 sm:w-14 sm:h-14 text-white relative z-10" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
                         </svg>
                     </div>
-                    <h1 className="text-4xl sm:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-pink-400 to-purple-400 mb-2 drop-shadow-lg">
+                    <h1 className="text-4xl sm:text-6xl font-black text-transparent bg-clip-text bg-linear-to-r from-red-400 via-pink-400 to-purple-400 mb-2 drop-shadow-lg">
                         Download Videos
                     </h1>
                     <p className="text-lg sm:text-xl text-purple-200 font-semibold">🎥 YouTube • 📷 Instagram</p>
@@ -262,7 +288,7 @@ export default function DownloadForm() {
                             <button
                                 type="submit"
                                 disabled={loading || !url}
-                                className="absolute right-2 sm:right-3 top-2 sm:top-2.5 px-5 sm:px-7 py-2.5 bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 text-white font-bold rounded-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-xs sm:text-base shadow-lg"
+                                className="absolute right-2 sm:right-3 top-2 sm:top-2.5 px-5 sm:px-7 py-2.5 bg-linear-to-r from-red-500 via-pink-500 to-purple-600 text-white font-bold rounded-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-xs sm:text-base shadow-lg"
                             >
                                 {loading ? (
                                     <span className="inline-flex items-center gap-2">
@@ -277,11 +303,11 @@ export default function DownloadForm() {
                     {videoInfo && (
                         <div className="space-y-6 sm:space-y-8 animate-fadeInUp">
                             {/* Video Card */}
-                            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 p-6 sm:p-8 bg-gradient-to-br from-white/10 to-white/5 rounded-2xl backdrop-blur-sm border border-white/20 hover:border-white/40 transition-all duration-300">
+                            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 p-6 sm:p-8 bg-linear-to-br from-white/10 to-white/5 rounded-2xl backdrop-blur-sm border border-white/20 hover:border-white/40 transition-all duration-300">
                                 <img
                                     src={videoInfo.thumbnail}
                                     alt={videoInfo.title}
-                                    className="w-full sm:w-48 h-40 sm:h-40 object-cover rounded-xl shadow-xl flex-shrink-0 transform hover:scale-105 transition-transform duration-300"
+                                    className="w-full sm:w-48 h-40 sm:h-40 object-cover rounded-xl shadow-xl shrink-0 transform hover:scale-105 transition-transform duration-300"
                                 />
                                 <div className="flex-1 min-w-0">
                                     <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3 line-clamp-2 leading-tight">
@@ -305,7 +331,7 @@ export default function DownloadForm() {
                                 {/* VIDEO COLUMN */}
                                 <div className="space-y-4">
                                     <h3 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-3 mb-4">
-                                        <span className="p-2 bg-gradient-to-br from-red-500 to-rose-600 rounded-lg">
+                                        <span className="p-2 bg-linear-to-br from-red-500 to-rose-600 rounded-lg">
                                             <svg className="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
                                                 <path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                                                 <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -353,7 +379,7 @@ export default function DownloadForm() {
                                 {/* AUDIO COLUMN */}
                                 <div className="space-y-4">
                                     <h3 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-3 mb-4">
-                                        <span className="p-2 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg">
+                                        <span className="p-2 bg-linear-to-br from-emerald-500 to-green-600 rounded-lg">
                                             <svg className="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                                             </svg>
@@ -400,7 +426,7 @@ export default function DownloadForm() {
 
                             {/* Download Progress */}
                             {downloading && (
-                                <div className="p-6 sm:p-8 bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-pink-500/20 rounded-2xl border-2 border-blue-400/50 backdrop-blur-sm animate-fadeInUp">
+                                <div className="p-6 sm:p-8 bg-linear-to-br from-blue-500/20 via-purple-500/20 to-pink-500/20 rounded-2xl border-2 border-blue-400/50 backdrop-blur-sm animate-fadeInUp">
                                     <div className="flex justify-between mb-3">
                                         <span className="font-bold text-white text-base sm:text-lg flex items-center gap-2">
                                             <span className="animate-spin">⚙️</span> Downloading...
@@ -411,7 +437,7 @@ export default function DownloadForm() {
                                     </div>
                                     <div className="w-full bg-white/20 rounded-full h-3 mb-4 overflow-hidden border border-white/30">
                                         <div
-                                            className="h-3 rounded-full transition-all duration-300 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 shadow-lg shadow-purple-500/50"
+                                            className="h-3 rounded-full transition-all duration-300 bg-linear-to-r from-blue-400 via-purple-400 to-pink-400 shadow-lg shadow-purple-500/50"
                                             style={{ width: totalSize > 0 ? `${downloadProgress}%` : '100%' }}
                                         />
                                     </div>
